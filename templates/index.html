@@ -1,0 +1,257 @@
+<html>
+    <head>
+        <title>Todo App</title>
+    <style>
+        .hidden{
+            display: none; 
+        }
+        ul {
+            list-style: none;
+            margin: 0;
+            padding: 0; 
+            width: 300px; 
+           
+        }
+        .todos-wrapper, .lists-wrapper{ 
+            display: inline-block; 
+            vertical-align: top;
+        }
+        li{ 
+            clear: both; 
+        }
+        li button {
+            -webkit-apperance: none; 
+            border: none;
+            outline: none;
+            color: red;
+            float: right;
+            cursor: pointer;
+            font-size: 15px;
+        } 
+    </style>
+    </head>
+    <body>
+        <div class ="lists-wrapper"> 
+            <h4>Todo Lists</h4>
+            <form id="form_list"> <!-- get new list name -->
+                <input type="text" id="name" name = "name" />
+                <input type="submit" value="Create List" /> 
+            </form>
+            <ul id="lists">
+                {% for list in lists %} <!-- list of todos -->
+                <li> 
+                    <input class="check-completed-lists" data-id="{{ list.id }}" type="checkbox" {% if list.completed %} checked {% endif %} />
+                    <a class="links" href="/lists/{{list.id}}"> {{list.name}} </a>
+                    <button class="delete-button-lists" data-id="{{ list.id }}">&cross;</button>
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+        <div class ="todos-wrapper"> 
+            <h4>
+                {{ active_list.name }}
+            </h4>
+            <form id="form"> <!-- get todo item for list -->
+                <input type="text" id="description" name = "description" />
+                <input type="submit" value="Add to do" /> 
+            </form>
+            <div id="error" class="hidden">Something Went Wrong! </div> 
+            <ul id="todos">
+                {% for todo in todos %} <!-- todo items --> 
+                <li>
+                <input class="check-completed" data-id="{{ todo.id }}" type="checkbox" {% if todo.completed %} checked {% endif %} />
+                {{ todo.description }}
+                <button class="delete-button" data-id="{{ todo.id }}">&cross;</button>
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+       
+        <script>
+            //adds checks boxes 
+            const checkboxes =document.querySelectorAll('.check-completed'); //retruns an array
+            for(let i =0; i < checkboxes.length; i++){  //goes through the entire list 
+                const checkbox = checkboxes[i];
+                checkbox.onchange = function(e){
+                    const newCompleted = e.target.checked;
+                    const todoId = e.target.dataset['id'];
+                    fetch('/todos/' + todoId + '/set-completed',{
+                        method: 'POST',
+                        body: JSON.stringify({
+                            'completed' : newCompleted
+                        }),
+                        headers:{
+                            'Content-Type' : 'application/json'
+                        }
+                    })
+                    .then(function(){
+                        document.getElementById('error').className='hidden'; 
+                    })
+                    .catch(function(){
+                        document.getElementById('error').className='';
+                        })
+                }
+            }
+            
+        const descInput = document.getElementById('description');
+
+    
+        document.getElementById('form').onsubmit = function(e) {
+            e.preventDefault();
+            const desc = descInput.value;
+           // descInput.value = '';
+            fetch('/todos/create', {
+                method: 'POST',
+                body: JSON.stringify({
+                    'description': desc,
+                    'list_id':  "{{ active_list.id }}",
+                }),
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+                })
+                .then(response => response.json())
+                .then(jsonResponse => {
+                    const li = document.createElement('li'); //create element 
+
+                    const checkbox = document.createElement('input'); //create an input element for the checkbox 
+                    checkbox.className = 'check-completed'; //iddentify class name 
+                    checkbox.type = 'checkbox'; //type tag 
+                    checkbox.setAttribute('data-id', jsonResponse.id); //gives the box an id 
+                    li.appendChild(checkbox); //adds it to the li item 
+
+                    const text = document.createTextNode(' ' + jsonResponse.description);
+                    li.appendChild(text);
+
+
+                    //gives each element its own unique delete button 
+                    const deleteBtn = document.createElement('button'); //create button element 
+                    deleteBtn.className = 'delete-button';  //gives it class 
+                    deleteBtn.setAttribute('data-id', jsonResponse.id); //gest the id from the submition 
+                    deleteBtn.innerHTML = '&cross;'; //sets html to the check mark 
+                    li.appendChild(deleteBtn); //appends to the unique line item 
+
+                    document.getElementById('todos').appendChild(li);
+
+
+                    document.getElementById('error').className = 'hidden';
+            })
+            .catch(function() {
+                console.error('Error occurred');
+                document.getElementById('error').className = '';
+            });
+        }
+                
+                const deleteBtns = document.querySelectorAll('.delete-button'); //selects all the delete buttons 
+                for (let i = 0; i < deleteBtns.length; i++) { //goes through all of them 
+                    const btn = deleteBtns[i];
+                    console.log("NIGGA");
+                    btn.onclick = function(e) { //checks if they are pressed 
+                        const todoId = e.target.dataset['id'];
+                        fetch('/todos/' + todoId, { //makes a call to the controller to delete the item from the list 
+                            method: 'DELETE'
+                        }).then(function() {
+                            const item = e.target.parentElement; 
+                            item.remove(); //removes it from the list (once the database is update it needs to be removed from the list without a refresh to work)
+                        })
+                    
+                    }
+            }
+
+            const listInput2 = document.getElementById('name'); //returns element from object corresponding the id 
+            //console.log(  listInput2);
+            document.getElementById('form_list').onsubmit = function(e) {
+                e.preventDefault();
+                const newList = listInput2.value;
+                listInput2.value = '';
+                fetch('/todo/createlist',{ //url 
+                    method: 'POST', 
+                    body: JSON.stringify({
+                        "name" : newList,
+                        
+                    }),
+                    headers:{
+                            'Content-Type' : 'application/json'
+                        }
+                    })
+                    .then(response => response.json()) //promise based library thus this happens after the fetch 
+                    .then( jsonResponse => {
+                            
+                            const liItem = document.createElement('LI'); //create element
+                            
+                            const text = document.createTextNode(' ' + jsonResponse.names); //creates an object from the json response 
+                            liItem.className = 'links';                      
+                            console.log("sex money alcohol "   +  text);
+                            liItem.appendChild(text); //adds the object to the created element 
+                            
+
+                            //gives each element its own unique delete button 
+                            const deleteBtnlist = document.createElement('button'); //create button element 
+                            deleteBtnlist.className = 'delete-button-lists';  //gives it class 
+                            console.log(JSON.stringify(jsonResponse.id));
+                            deleteBtnlist.setAttribute('data-id', jsonResponse.id); //gest the id from the submition 
+                            deleteBtnlist.innerHTML = '&cross;'; //sets html to the check mark 
+                            liItem.appendChild(deleteBtnlist); //appends to the unique line item 
+
+
+                            const checkbox = document.createElement('input'); //create an input element for the checkbox 
+                            checkbox.className = 'check-completed-list'; //iddentify class name 
+                            checkbox.type = 'checkbox'; //type tag 
+                            checkbox.setAttribute('data-id', jsonResponse.id); //gives the box an id 
+                            liItem.appendChild(checkbox); //adds it to the li item 
+
+
+                            document.getElementById('lists').appendChild(liItem); //adds the element to the list that is updated 
+
+
+                            window.location.reload(true); //we must fresh page after to create a link for the list
+                           
+                        })          
+            }
+            const deleteBtnslist = document.querySelectorAll('.delete-button-lists'); //selects all the delete buttons 
+            console.log(deleteBtnslist.length);
+                for (let a = 0 ; a < deleteBtnslist.length; a++) { //goes through all of them 
+                    const btn = deleteBtnslist[a];
+                    console.log(deleteBtnslist + "sad");
+                    btn.onclick = function(e) { //checks if they are pressed 
+                        const todoId = e.target.dataset['id'];
+                        console.log("pressed button now delete it before i lose my shit");
+                        fetch('/todoslist/' + todoId, { //makes a call to the controller to delete the item from the list 
+                            method: 'DELETE'
+                        }).then(function() {
+                            const item = e.target.parentElement; 
+                            item.remove(); //removes it from the list (once the database is update it needs to be removed from the list without a refresh to work)
+                        })
+                    
+                    }
+            }
+
+            const checkboxeslist =document.querySelectorAll('.check-completed-lists'); //retruns an array
+            for(let j =0; j < checkboxeslist.length; j++){  //goes through the entire list 
+                const checkbox = checkboxeslist[j];
+                checkbox.onchange = function(e){
+                    const newCompleted = e.target.checked;
+                    console.log(newCompleted+ "FATTY");
+                    const todoId = e.target.dataset['id'];
+                    fetch('/todos/' + todoId + '/set-completed-lists',{
+                        method: 'POST',
+                        body: JSON.stringify({
+                            'completed' : newCompleted
+                        }),
+                        headers:{
+                            'Content-Type' : 'application/json'
+                        }
+                    })
+                    .then(function(){
+                        document.getElementById('error').className='hidden'; 
+                    })
+                    .catch(function(){
+                        document.getElementById('error').className='';
+                        })
+                }
+            }
+
+        </script>
+    </body>
+    
+</html>
